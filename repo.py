@@ -103,11 +103,13 @@ class User:
     def __init__(self, filename):
         self.htfile = HtpasswdFile(filename)
 
-    def add(self, username, password, realm = None):
+    def add(self, username, password, realm=None, email=False):
         if not password:
             password = random_pwd(8)
         self.htfile.update(username, password, realm)
         self.htfile.save()
+        if email:
+            self.notify_user(email)
 
     def list(self):
         return [x[0] for x in self.htfile.list()]
@@ -115,6 +117,9 @@ class User:
     def delete(username):
         self.htfile.delete(username)
         self.htfile.save()
+
+    def notify_user(email):
+        
 
 class Repository:
     """ A class for managing the repositories """
@@ -148,7 +153,7 @@ def main():
     """Mercurial Repository Manager (v0.2)"""
 
     parser = ArgumentParser(description = main.__doc__)
-    parser.add_argument('-v', '--verbose', action='version', version=hg_version)
+    parser.add_argument('-v', '--version', action='version', version=hg_version)
     parser.add_argument('-c', '--config', dest='config_file', default=default_config_file,
                         help='specify a hgweb.config configuration file.')
     parser.add_argument('-u', '--users', dest='users_file', default=default_users_file,
