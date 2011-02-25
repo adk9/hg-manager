@@ -170,13 +170,13 @@ class Repository:
             for _, c in collections:
                 dirs = os.listdir(c)
                 for d in dirs:
-                    self.add(os.path.basename(d), os.path.abspath(d))
+                    self.add(os.path.basename(d), os.path.abspath(c) + '/' + d)
 
     def add(self, name, path):
         self.available_repos[name] = path
 
     def list(self):
-        return self.available_repos.keys()
+        return self.available_repos
 
     def adduser(self, username):
         self.available_repos[name] = path
@@ -209,14 +209,14 @@ def main():
     print "Repositories:", r.list()
     print "Users:", u.list()
 
-    print "Deleting user (foo)"
-    u.delete('foo')
-    print "Deleted user (foo)"
+#    print "Deleting user (foo)"
+#    u.delete('foo')
+#    print "Deleted user (foo)"
 
-    print "Adding user (foo) with password (foobar)"
-    u.add('foo', realm='garkbit repository', email='adkulkar@indiana.edu')
-    print "User foo added."
-    print "Users:", u.list()
+#    print "Adding user (foo) with password (foobar)"
+#    u.add('foo', realm='garkbit repository')
+#    print "User foo added."
+#    print "Users:", u.list()
 
 #     # Non-option arguments
 #     if len(args) < 2:
