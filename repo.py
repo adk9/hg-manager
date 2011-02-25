@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Module repo_manage.
+"""Module hg-manager.
 (c) 2011 Abhishek Kulkarni
 
 Hg Repository Permissions Manager
@@ -39,6 +39,9 @@ default_config_file = 'hgweb.config'
 # Default path to the users file (containing a list of users)
 default_users_file = '.htdigest'
 
+# hg-gateway version
+hg_version = "0.2"
+
 def random_pwd(len):
     """Returns a random password of length size """
     return ''.join([random.choice(string.letters + string.digits) for i in range(size)])
@@ -73,7 +76,7 @@ class HtpasswdFile:
         open(self.filename, 'w').writelines([":".join(entry) + "\n"
                                              for entry in self.entries])
 
-    def update(self, username, password, realm=''):
+    def update(self, username, password, realm = None):
         """Replace the entry for the given user, or add it if new."""
         pwhash = crypt.crypt(password, random_pwd(2))
         matching_entries = [entry for entry in self.entries
@@ -85,7 +88,7 @@ class HtpasswdFile:
                 matching_entries[0][1] = realm
                 matching_entries[0][2] = pwhash
         else:
-            if realm == '':
+            if not realm:
                 self.entries.append([username, pwhash])
             else:
                 self.entries.append([username, realm, pwhash])
@@ -94,6 +97,24 @@ class HtpasswdFile:
         """Remove the entry for the given user."""
         self.entries = [entry for entry in self.entries
                         if entry[0] != username]
+
+class User:
+    """ A class for managing the users """
+    def __init__(self, filename):
+        self.htfile = HtpasswdFile(filename)
+
+    def add(self, username, password, realm = None):
+        if not password:
+            password = random_pwd(8)
+        self.htfile.update(username, password, realm)
+        self.htfile.save()
+
+    def list(self):
+        return [x[0] for x in self.htfile.list()]
+
+    def delete(username):
+        self.htfile.delete(username)
+        self.htfile.save()
 
 class Repository:
     """ A class for managing the repositories """
@@ -120,35 +141,17 @@ class Repository:
     def list(self):
         return self.available_repos.keys()
 
-    def scan_repos(self):
-        if not self.available_repos:
-            return
-
-class User:
-    """ A class for managing the users """
-    def __init__(self, filename):
-        self.htfile = HtpasswdFile(filename)
-    def add(self, name, password, realm = None):
-        if not password:
-            # Generate a secure password here
-            password = 'garkbit'
-            if not realm:
-                realm = 'garkbit repository'
-
-            # self.available_user[name] = password
-            # Commit in the users files
-            print "See adduser.sh to add a new user!"
-
-    def list(self):
-        return [x[0] for x in self.htfile.list()]
+    def adduser(self, username):
+        self.available_repos[name] = path
 
 def main():
     """Mercurial Repository Manager (v0.2)"""
 
     parser = ArgumentParser(description = main.__doc__)
-    parser.add_argument('-c', dest='config_file', default=default_config_file,
+    parser.add_argument('-v', '--verbose', action='version', version=hg_version)
+    parser.add_argument('-c', '--config', dest='config_file', default=default_config_file,
                         help='specify a hgweb.config configuration file.')
-    parser.add_argument('-u', dest='users_file', default=default_users_file,
+    parser.add_argument('-u', '--users', dest='users_file', default=default_users_file,
                         help='specify a users file (.htpasswd or .htdigest).')
 
     args = parser.parse_args()
