@@ -15,7 +15,9 @@ import sys
 import ConfigParser
 import random
 import string
+import smtplib
 from argparse import ArgumentParser
+from email.mime.text import MIMEText
 
 # We need a crypt module, but Windows doesn't have one by default.  Try to find
 # one, and tell the user if we can't.
@@ -28,6 +30,11 @@ except ImportError:
         sys.stderr.write("Cannot find a crypt module.  "
                          "Possibly http://carey.geek.nz/code/python-fcrypt/\n")
         sys.exit(1)
+
+try:
+    from hashlib import md5
+except ImportError:
+    from md5 import md5
 
 #
 # Global Configuration
@@ -42,7 +49,7 @@ default_users_file = '.htdigest'
 # hg-gateway version
 hg_version = "0.2"
 
-def random_pwd(len):
+def random_pwd(size):
     """Returns a random password of length size """
     return ''.join([random.choice(string.letters + string.digits) for i in range(size)])
 
@@ -76,21 +83,25 @@ class HtpasswdFile:
         open(self.filename, 'w').writelines([":".join(entry) + "\n"
                                              for entry in self.entries])
 
-    def update(self, username, password, realm = None):
+    def update(self, username, password, realm=None):
         """Replace the entry for the given user, or add it if new."""
-        pwhash = crypt.crypt(password, random_pwd(2))
+        kd = lambda x: md5(':'.join(x)).hexdigest()
         matching_entries = [entry for entry in self.entries
                             if entry[0] == username]
         if matching_entries:
             if len(matching_entries[0]) == 2:
+                pwhash = crypt.crypt(password, random_pwd(2))
                 matching_entries[0][1] = pwhash
             else:
+                pwhash = kd([username, realm, password])
                 matching_entries[0][1] = realm
                 matching_entries[0][2] = pwhash
         else:
             if not realm:
+                pwhash = crypt.crypt(password, random_pwd(2))
                 self.entries.append([username, pwhash])
             else:
+                pwhash = kd([username, realm, password])
                 self.entries.append([username, realm, pwhash])
 
     def delete(self, username):
@@ -103,23 +114,44 @@ class User:
     def __init__(self, filename):
         self.htfile = HtpasswdFile(filename)
 
-    def add(self, username, password, realm=None, email=False):
+    def add(self, username, password=None, realm=None, email=False):
         if not password:
             password = random_pwd(8)
         self.htfile.update(username, password, realm)
         self.htfile.save()
         if email:
-            self.notify_user(email)
+            self.notify_user(username, password, email)
 
     def list(self):
         return [x[0] for x in self.htfile.list()]
 
-    def delete(username):
+    def delete(self, username):
         self.htfile.delete(username)
         self.htfile.save()
 
-    def notify_user(email):
-        
+    def notify_user(self, username, password, email):
+        body = """
+Greetings %s,
+Your account details for the garkbit repository(s) at https://garkbit.osl.iu.edu/hg/ are:
+
+    Username: %s
+    Password: %s
+
+Best Regards,
+Garkbit Repository Manager
+
+*** Please delete this email after memorizing your password. ***
+""" % (username, username, password)
+
+        msg = MIMEText(body)
+        msg['Subject'] = 'Your password for garkbit repository.'
+        msg['From'] = 'root@garkbit.osl.iu.edu'
+        msg['To'] = email
+
+        # Send the email
+        s = smtplib.SMTP('localhost')
+        s.sendmail('root@garkbit.osl.iu.edu', email, msg.as_string())
+        s.quit()
 
 class Repository:
     """ A class for managing the repositories """
@@ -175,6 +207,15 @@ def main():
     r = Repository(args.config_file)
 
     print "Repositories:", r.list()
+    print "Users:", u.list()
+
+    print "Deleting user (foo)"
+    u.delete('foo')
+    print "Deleted user (foo)"
+
+    print "Adding user (foo) with password (foobar)"
+    u.add('foo', realm='garkbit repository', email='adkulkar@indiana.edu')
+    print "User foo added."
     print "Users:", u.list()
 
 #     # Non-option arguments
