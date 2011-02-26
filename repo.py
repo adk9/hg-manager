@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Module hg-manager.
+"""Module hg-manager
 (c) 2011 Abhishek Kulkarni
 
 Hg Repository Permissions Manager
