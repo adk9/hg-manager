@@ -47,7 +47,7 @@ default_config_file = 'hgweb.config'
 default_users_file = '.htdigest'
 
 # hg-gateway version
-hg_version = "0.2"
+hg_version = "0.3"
 
 def random_pwd(size):
     """Returns a random password of length size """
@@ -123,7 +123,7 @@ class User:
             self.notify_user(username, password, email)
 
     def list(self):
-        return [x[0] for x in self.htfile.list()]
+        return set([x[0] for x in self.htfile.list()])
 
     def delete(self, username):
         self.htfile.delete(username)
@@ -176,13 +176,38 @@ class Repository:
         self.available_repos[name] = path
 
     def list(self):
-        return self.available_repos
+        return self.available_repos.keys()
 
-    def adduser(self, username):
-        self.available_repos[name] = path
+    def listusers(self, name, users):
+        u = {}
+        path = self.available_repos[name]
+        config = ConfigParser.RawConfigParser()
+        config.read(path + "/.hg/hgrc")
+        if config.has_section('web'):
+            if config.has_option('web', 'allow_read'):
+                val = config.get('web', 'allow_read')
+                if val == '*':
+                    ro_users = users
+                else:
+                    ro_users = set(val.split(','))
+            else:
+                ro_users = users
+
+            if config.has_option('web', 'allow_push'):
+                val = config.get('web', 'allow_push')
+                if val == '*':
+                    rw_users = users
+                else:
+                    rw_users = val.split(',')
+            else:
+                rw_users = users
+
+        u['ro'] = set(ro_users) - set(rw_users)
+        u['rw'] = rw_users
+        return u
 
 def main():
-    """Mercurial Repository Manager (v0.2)"""
+    """Mercurial Repository Manager (v0.3)"""
 
     parser = ArgumentParser(description = main.__doc__)
     parser.add_argument('-v', '--version', action='version', version=hg_version)
@@ -203,11 +228,19 @@ def main():
     print "Configuration file:", args.config_file
     print "Users file:", args.users_file
 
-    u = User(args.users_file)
-    r = Repository(args.config_file)
+    users = User(args.users_file)
+    repos = Repository(args.config_file)
 
-    print "Repositories:", r.list()
-    print "Users:", u.list()
+    print "Users:", ", ".join(users.list())
+
+    for r in repos.list():
+        rusers = repos.listusers(r, users.list())
+        print "[%s]:" % r
+        if rusers['ro']:
+            print "   %s (ro)" % ", ".join(rusers['ro'])
+
+        if rusers['rw']:
+            print "   %s (rw)" % ", ".join(rusers['rw'])
 
 #    print "Deleting user (foo)"
 #    u.delete('foo')
