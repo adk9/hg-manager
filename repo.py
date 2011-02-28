@@ -47,7 +47,54 @@ default_config_file = 'hgweb.config'
 default_users_file = '.htdigest'
 
 # hg-gateway version
-hg_version = "0.3"
+hg_version = '0.3'
+
+# HTTPS URL to your repository manager
+repo_http_url = 'https://garkbit.osl.iu.edu/hg'
+
+# SSH URL to your repository manager
+repo_ssh_url = 'ssh://hg@garkbit.osl.iu.edu'
+
+repo_maintainer = 'root@garkbit.osl.iu.edu'
+
+# Any additional notice related to your repository manager
+# that you would like to include in the notification emails
+# sent out by your repository manager"
+repo_usage = """
+------------------------------------------------------------------------------
+A short guide to using the Garkbit Repositories.
+------------------------------------------------------------------------------
+
+There are basically two ways to access your repositories on the
+Garkbit server:
+
+1. Using password-based authentication over HTTPS
+
+You have been already registered for this method of repository access.
+You will have to enter your login credentials for any Mercurial operation
+performed with the server (like hg pull, hg push etc.)
+
+To checkout a mercurial repository 'my_example_repo', do:
+  hg clone %s/my_example_repo
+
+and enter the above username and password.
+
+2. Key-based authentication over SSH
+
+Alternatively, you can submit your shared SSH public key to the repositories
+maintainer and access the repositories over SSH.
+
+To checkout a mercurial repository 'my_example_repo', do:
+  hg clone %s/my_example_repo
+
+Do not reply to this email. For further questions, please email the
+repositories maintainer instead.
+
+------------------------------------------------------------------------------
+""" % (repo_http_url, repo_ssh_url)
+
+
+#############################################################
 
 def random_pwd(size):
     """Returns a random password of length size """
@@ -132,25 +179,26 @@ class User:
     def notify_user(self, username, password, email):
         body = """
 Greetings %s,
-Your account details for the garkbit repository(s) at https://garkbit.osl.iu.edu/hg/ are:
+Your account details for the Mercurial repository(s) at %s are:
 
     Username: %s
     Password: %s
 
 Best Regards,
-Garkbit Repository Manager
+Mercurial Repository Manager
 
 *** Please delete this email after memorizing your password. ***
-""" % (username, username, password)
+%s
+""" % (username, repo_http_url, username, password, repo_usage)
 
         msg = MIMEText(body)
-        msg['Subject'] = 'Your password for garkbit repository.'
-        msg['From'] = 'root@garkbit.osl.iu.edu'
+        msg['Subject'] = "Your password for mercurial repository at %s." % repo_url
+        msg['From'] = repo_maintainer
         msg['To'] = email
 
         # Send the email
         s = smtplib.SMTP('localhost')
-        s.sendmail('root@garkbit.osl.iu.edu', email, msg.as_string())
+        s.sendmail(repo_maintainer, email, msg.as_string())
         s.quit()
 
 class Repository:
