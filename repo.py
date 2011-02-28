@@ -55,7 +55,7 @@ repo_http_url = 'https://garkbit.osl.iu.edu/hg'
 # SSH URL to your repository manager
 repo_ssh_url = 'ssh://hg@garkbit.osl.iu.edu'
 
-repo_maintainer = 'root@garkbit.osl.iu.edu'
+repo_maintainer = 'adkulkar@garkbit.osl.iu.edu'
 
 # Any additional notice related to your repository manager
 # that you would like to include in the notification emails
@@ -75,7 +75,7 @@ You will have to enter your login credentials for any Mercurial operation
 performed with the server (like hg pull, hg push etc.)
 
 To checkout a mercurial repository 'my_example_repo', do:
-  hg clone %s/my_example_repo
+$ hg clone %s/my_example_repo
 
 and enter the above username and password.
 
@@ -85,7 +85,7 @@ Alternatively, you can submit your shared SSH public key to the repositories
 maintainer and access the repositories over SSH.
 
 To checkout a mercurial repository 'my_example_repo', do:
-  hg clone %s/my_example_repo
+$ hg clone %s/my_example_repo
 
 Do not reply to this email. For further questions, please email the
 repositories maintainer instead.
@@ -192,7 +192,7 @@ Mercurial Repository Manager
 """ % (username, repo_http_url, username, password, repo_usage)
 
         msg = MIMEText(body)
-        msg['Subject'] = "Your password for mercurial repository at %s." % repo_url
+        msg['Subject'] = "Your password for mercurial repository at %s" % repo_http_url
         msg['From'] = repo_maintainer
         msg['To'] = email
 
@@ -226,11 +226,24 @@ class Repository:
     def list(self):
         return self.available_repos.keys()
 
+    def listbyuser(self, username):
+        repos = self.list()
+        myrepos = set()
+        for r in repos:
+            urs = self.listusers(r, [username])
+            for v in urs.values():
+                if username in v:
+                    myrepos.add(r)
+
+        return myrepos
+
     def listusers(self, name, users):
         u = {}
         path = self.available_repos[name]
         config = ConfigParser.RawConfigParser()
         config.read(path + "/.hg/hgrc")
+        ro_users = set()
+        rw_users = set()
         if config.has_section('web'):
             if config.has_option('web', 'allow_read'):
                 val = config.get('web', 'allow_read')
@@ -248,11 +261,34 @@ class Repository:
                 else:
                     rw_users = val.split(',')
             else:
-                rw_users = users
+                rw_users = set()
 
         u['ro'] = set(ro_users) - set(rw_users)
-        u['rw'] = rw_users
+        u['rw'] = set(rw_users)
         return u
+
+    def adduser(self, name, username, mode='rw'):
+        path = self.available_repos[name]
+        with open(path + '/.hg/hgrc', 'wb') as hgrc:
+            config = ConfigParser.RawConfigParser()
+            config.read(path + '/.hg/hgrc')
+            if not config.has_section('web'):
+                config.add_section('web')
+
+            if config.has_option('web', 'allow_read'):
+                val = config.get('web', 'allow_read')
+                if val != '*':
+                    config.set('web', 'allow_read', val + ',' + username)
+
+            if mode == 'rw':
+                if config.has_option('web', 'allow_push'):
+                    val = config.get('web', 'allow_push')
+                    if val != '*':
+                        config.set('web', 'allow_push', val + ',' + username)
+                else:
+                    config.set('web', 'allow_push', username)
+
+            config.write(hgrc)
 
 def main():
     """Mercurial Repository Manager (v0.3)"""
@@ -290,14 +326,36 @@ def main():
         if rusers['rw']:
             print "   %s (rw)" % ", ".join(rusers['rw'])
 
-#    print "Deleting user (foo)"
-#    u.delete('foo')
-#    print "Deleted user (foo)"
+    print "Adding user (foo) with password (foobar)"
+    users.add('foo', realm='garkbit repository')
+    print "User foo added."
+    print "Users:", ", ".join(users.list())
 
-#    print "Adding user (foo) with password (foobar)"
-#    u.add('foo', realm='garkbit repository')
-#    print "User foo added."
-#    print "Users:", u.list()
+
+    for r in repos.list():
+        rusers = repos.listusers(r, users.list())
+        print "[%s]:" % r
+        if rusers['ro']:
+            print "   %s (ro)" % ", ".join(rusers['ro'])
+
+        if rusers['rw']:
+            print "   %s (rw)" % ", ".join(rusers['rw'])
+
+    repos.adduser('hg-manager', 'foo')
+
+    print "foo: "
+    print ", ".join(repos.listbyuser('foo'))
+
+    print "adkulkar: "
+    print ", ".join(repos.listbyuser('adkulkar'))
+
+    print "garkbit: "
+    print ", ".join(repos.listbyuser('garkbit'))
+
+    print "Deleting user (foo)"
+    users.delete('foo')
+    print "Deleted user (foo)"
+    print "Users:", ", ".join(users.list())
 
 #     # Non-option arguments
 #     if len(args) < 2:
