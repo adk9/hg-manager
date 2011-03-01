@@ -303,11 +303,13 @@ class Repository:
                     val = config.get('web', 'allow_read')
                     if val != '*':
                         newval = set(val) - set([username])
+                        print "newval is", ", ".join(newval)
                         config.set('web', 'allow_read', ", ".join(newval))
                 if config.has_option('web', 'allow_push'):
                     val = config.get('web', 'allow_push')
                     if val != '*':
                         newval = set(val) - set([username])
+                        print "newval is", ", ".join(newval)
                         config.set('web', 'allow_push', ", ".join(newval))
                 config.write(hgrc)
 
@@ -352,6 +354,8 @@ def main():
     print "User foo added."
     print "Users:", ", ".join(users.list())
 
+    repos.adduser('hg-manager', 'foo')
+
     for r in repos.list():
         rusers = repos.listusers(r, users.list())
         print "[%s]:" % r
@@ -360,8 +364,6 @@ def main():
 
         if rusers['rw']:
             print "   %s (rw)" % ", ".join(rusers['rw'])
-
-    repos.adduser('hg-manager', 'foo')
 
     print "foo: "
     print ", ".join(repos.listbyuser('foo'))
@@ -372,9 +374,9 @@ def main():
     print "garkbit: "
     print ", ".join(repos.listbyuser('garkbit'))
 
-    print "Deleting user (foo)"
-    users.delete('foo', repos)
-    print "Deleted user (foo)"
+#    print "Deleting user (foo)"
+#    users.delete('foo', repos)
+#    print "Deleted user (foo)"
     print "Users:", ", ".join(users.list())
 
 #     # Non-option arguments
