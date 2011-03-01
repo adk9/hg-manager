@@ -3,7 +3,7 @@
 """Module hg-manager
 (c) 2011 Abhishek Kulkarni
 
-Hg Repository Permissions Manager
+Hg Repository Manager
 
 Replacement for htpasswd
 http://trac.edgewall.org/browser/trunk/contrib/htpasswd.py
@@ -289,6 +289,7 @@ class Repository:
 
         with open(path + '/.hg/hgrc', 'wb') as hgrc:
             config.write(hgrc)
+        print "User %s added to repository %s with mode=%s." % (username, name, mode)
 
     def deluser(self, name, username):
         path = self.available_repos[name]
@@ -309,16 +310,101 @@ class Repository:
 
             with open(path + '/.hg/hgrc', 'wb') as hgrc:
                 config.write(hgrc)
+        print "User %s deleted from repository %s." % (username, name)
+
+
+def ls(args):
+    if args.username:
+        repos = Repository(args.config_file)
+        print "User [%s]:" % args.username
+        print " ", "\n  ".join(repos.listbyuser(args.username))
+    else:
+        users = User(args.users_file)
+        print "\n".join(users.list())
+
+def lsr(args):
+    repos = Repository(args.config_file)
+    if args.reponame:
+        users = User(args.users_file)
+        print "Repository [%s]:" % args.reponame
+        rusers = repos.listusers(args.reponame, users.list())
+        for ro in rusers['ro']:
+            print "  %s (ro)" % ro
+
+        for rw in rusers['rw']:
+            print "  %s (rw)" % rw
+    else:
+        print "\n".join(repos.list())
+
+def add(args):
+    users = User(args.users_file)
+    if args.username in users.list():
+        print "User %s already exists." % args.username
+        users.add(args.username, password=args.password, realm=args.realm,
+                  email=args.email)
+    else:
+        print "User %s added." % args,username
+
+def rm(args):
+    users = User(args.users_file)
+    if args.username in users.list():
+        yes = set(['yes','y', ''])
+        no = set(['no','n'])
+        sys.stdout.write("Are you sure you want to delete the user ")
+        sys.stdout.write(args.username)
+        sys.stdout.write(" (Y/N)? ")
+        choice = raw_input().lower()
+        if choice in yes:
+            repos = Repository(args.config_file)
+            users.delete(args.username)
+            for r in repos.listbyuser(args.username):
+                repos.deluser(r, args.username)
+            print "User %s deleted." % args.username
+    else:
+        print "Invalid user %s." % args.username
 
 def main():
     """Mercurial Repository Manager (v0.3)"""
 
     parser = ArgumentParser(description = main.__doc__)
     parser.add_argument('-v', '--version', action='version', version=hg_version)
-    parser.add_argument('-c', '--config', dest='config_file', default=default_config_file,
+    parser.add_argument('-c', '--config', dest='config_file',
+                        default=default_config_file,
                         help='specify a hgweb.config configuration file.')
-    parser.add_argument('-u', '--users', dest='users_file', default=default_users_file,
+    parser.add_argument('-u', '--users', dest='users_file',
+                        default=default_users_file,
                         help='specify a users file (.htpasswd or .htdigest).')
+
+    cmdparser = parser.add_subparsers(title='commands', help='valid commands')
+
+    # List users
+    ls_parser = cmdparser.add_parser('ls', help='list users')
+    ls_parser.add_argument('username', action='store', help='List user details',
+                           nargs='?')
+    ls_parser.set_defaults(func=ls)
+
+    # Add users
+    add_parser = cmdparser.add_parser('add', help='add a user')
+    add_parser.add_argument('username', action='store', help='New user to add')
+    add_parser.add_argument('-r', '--realm', dest='realm',
+                            default='mercurial repository',
+                            help='realm to add the user to')
+    add_parser.add_argument('password', action='store', help='user\'s password',
+                            nargs='?')
+    add_parser.add_argument('-e', '--email', dest='email',
+                            help='notify the user through email')
+    add_parser.set_defaults(func=add)
+
+    # Remove users
+    rm_parser = cmdparser.add_parser('rm', help='remove a user')
+    rm_parser.add_argument('username', action='store', help='User to remove')
+    rm_parser.set_defaults(func=rm)
+
+    # List repositories
+    lsr_parser = cmdparser.add_parser('lsr', help='list repositories')
+    lsr_parser.add_argument('reponame', action='store', help='List repositories',
+                            nargs='?')
+    lsr_parser.set_defaults(func=lsr)
 
     args = parser.parse_args()
 
@@ -332,74 +418,9 @@ def main():
     print "Configuration file:", args.config_file
     print "Users file:", args.users_file
 
-    users = User(args.users_file)
-    repos = Repository(args.config_file)
+    args.func(args)
 
-    print "Users:", ", ".join(users.list())
-
-    for r in repos.list():
-        rusers = repos.listusers(r, users.list())
-        print "[%s]:" % r
-        if rusers['ro']:
-            print "   %s (ro)" % ", ".join(rusers['ro'])
-
-        if rusers['rw']:
-            print "   %s (rw)" % ", ".join(rusers['rw'])
-
-    print "Adding user (foo) with password (foobar)"
-    users.add('foo', realm='garkbit repository')
-    print "User foo added."
-    print "Users:", ", ".join(users.list())
-
-    repos.adduser('hg-manager', 'foo')
-
-    for r in repos.list():
-        rusers = repos.listusers(r, users.list())
-        print "[%s]:" % r
-        if rusers['ro']:
-            print "   %s (ro)" % ", ".join(rusers['ro'])
-
-        if rusers['rw']:
-            print "   %s (rw)" % ", ".join(rusers['rw'])
-
-    print "foo: "
-    print ", ".join(repos.listbyuser('foo'))
-
-    print "adkulkar: "
-    print ", ".join(repos.listbyuser('adkulkar'))
-
-    print "garkbit: "
-    print ", ".join(repos.listbyuser('garkbit'))
-
-    print "Deleting user (foo)"
-    users.delete('foo')
-    for r in repos.listbyuser('foo'):
-        repos.deluser(r, 'foo')
-    print "Deleted user (foo)"
-
-    print "Users:", ", ".join(users.list())
-
-#     # Non-option arguments
-#     if len(args) < 2:
-#         syntax_error("Insufficient number of arguments.\n")
-#     filename, username = args[:2]
-#     if options.delete_user:
-#         if len(args) != 2:
-#             syntax_error("Incorrect number of arguments.\n")
-#         password = None
-#     else:
-#         if len(args) != 3:
-#             syntax_error("Incorrect number of arguments.\n")
-#         password = args[2]
-
-#     passwdfile = HtpasswdFile(filename, create=options.create)
-
-#     if options.delete_user:
-#         passwdfile.delete(username)
-#     else:
-#         passwdfile.update(username, password)
-
-#     passwdfile.save()
+    # repos.adduser('hg-manager', 'foo')
 
 if __name__ == '__main__':
     main()
