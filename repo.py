@@ -172,12 +172,9 @@ class User:
     def list(self):
         return set([x[0] for x in self.htfile.list()])
 
-    def delete(self, username, repo=None):
+    def delete(self, username):
         self.htfile.delete(username)
         self.htfile.save()
-        if repo:
-            for r in repo.listbyuser(username):
-                repo.deluser(r, username)
 
     def notify_user(self, username, password, email):
         body = """
@@ -208,7 +205,7 @@ class Repository:
     """ A class for managing the repositories """
     def __init__(self, filename):
         self.available_repos = {}
-        config = ConfigParser.RawConfigParser()
+        config = ConfigParser.ConfigParser()
         config.read(filename)
 
         if config.has_section('paths'):
@@ -243,7 +240,7 @@ class Repository:
     def listusers(self, name, users):
         u = {}
         path = self.available_repos[name]
-        config = ConfigParser.RawConfigParser()
+        config = ConfigParser.ConfigParser()
         config.read(path + "/.hg/hgrc")
         ro_users = set()
         rw_users = set()
@@ -273,7 +270,7 @@ class Repository:
     def adduser(self, name, username, mode='rw'):
         path = self.available_repos[name]
         with open(path + '/.hg/hgrc', 'wb') as hgrc:
-            config = ConfigParser.RawConfigParser()
+            config = ConfigParser.ConfigParser()
             config.read(path + '/.hg/hgrc')
             if not config.has_section('web'):
                 config.add_section('web')
@@ -296,7 +293,7 @@ class Repository:
     def deluser(self, name, username):
         path = self.available_repos[name]
         with open(path + '/.hg/hgrc', 'wb') as hgrc:
-            config = ConfigParser.RawConfigParser()
+            config = ConfigParser.ConfigParser()
             config.read(path + '/.hg/hgrc')
             if config.has_section('web'):
                 if config.has_option('web', 'allow_read'):
@@ -377,6 +374,10 @@ def main():
 #    print "Deleting user (foo)"
 #    users.delete('foo', repos)
 #    print "Deleted user (foo)"
+#    for r in repo.listbyuser('foo'):
+#        repo.deluser(r, 'foo')
+
+
     print "Users:", ", ".join(users.list())
 
 #     # Non-option arguments
