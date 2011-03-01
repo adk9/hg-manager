@@ -373,7 +373,7 @@ def main():
     print ", ".join(repos.listbyuser('garkbit'))
 
     print "Deleting user (foo)"
-    users.delete('foo', repo)
+    users.delete('foo', repos)
     print "Deleted user (foo)"
     print "Users:", ", ".join(users.list())
 
