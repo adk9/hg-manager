@@ -269,45 +269,45 @@ class Repository:
 
     def adduser(self, name, username, mode='rw'):
         path = self.available_repos[name]
-        with open(path + '/.hg/hgrc', 'wb') as hgrc:
-            config = ConfigParser.ConfigParser()
-            config.read(path + '/.hg/hgrc')
-            if not config.has_section('web'):
-                config.add_section('web')
+        config = ConfigParser.ConfigParser()
+        config.read(path + '/.hg/hgrc')
+        if not config.has_section('web'):
+            config.add_section('web')
 
-            if config.has_option('web', 'allow_read'):
-                val = config.get('web', 'allow_read')
+        if config.has_option('web', 'allow_read'):
+            val = config.get('web', 'allow_read')
+            if val != '*':
+                config.set('web', 'allow_read', val + ',' + username)
+
+        if mode == 'rw':
+            if config.has_option('web', 'allow_push'):
+                val = config.get('web', 'allow_push')
                 if val != '*':
-                    config.set('web', 'allow_read', val + ',' + username)
+                    config.set('web', 'allow_push', val + ',' + username)
+            else:
+                config.set('web', 'allow_push', username)
 
-            if mode == 'rw':
-                if config.has_option('web', 'allow_push'):
-                    val = config.get('web', 'allow_push')
-                    if val != '*':
-                        config.set('web', 'allow_push', val + ',' + username)
-                else:
-                    config.set('web', 'allow_push', username)
-
+        with open(path + '/.hg/hgrc', 'wb') as hgrc:
             config.write(hgrc)
 
     def deluser(self, name, username):
         path = self.available_repos[name]
-        with open(path + '/.hg/hgrc', 'wb') as hgrc:
-            config = ConfigParser.ConfigParser()
-            config.read(path + '/.hg/hgrc')
-            if config.has_section('web'):
-                if config.has_option('web', 'allow_read'):
-                    val = config.get('web', 'allow_read')
-                    if val != '*':
-                        newval = set(val) - set([username])
-                        print "newval is", ", ".join(newval)
-                        config.set('web', 'allow_read', ", ".join(newval))
-                if config.has_option('web', 'allow_push'):
-                    val = config.get('web', 'allow_push')
-                    if val != '*':
-                        newval = set(val) - set([username])
-                        print "newval is", ", ".join(newval)
-                        config.set('web', 'allow_push', ", ".join(newval))
+        config = ConfigParser.ConfigParser()
+        config.read(path + '/.hg/hgrc')
+        if config.has_section('web'):
+            if config.has_option('web', 'allow_read'):
+                val = config.get('web', 'allow_read')
+                if val != '*':
+                    newval = set(val.split(',')) - set([username])
+                    config.set('web', 'allow_read', ", ".join(newval))
+
+            if config.has_option('web', 'allow_push'):
+                val = config.get('web', 'allow_push')
+                if val != '*':
+                    newval = set(val.split(',')) - set([username])
+                    config.set('web', 'allow_push', ", ".join(newval))
+
+            with open(path + '/.hg/hgrc', 'wb') as hgrc:
                 config.write(hgrc)
 
 def main():
@@ -371,12 +371,11 @@ def main():
     print "garkbit: "
     print ", ".join(repos.listbyuser('garkbit'))
 
-#    print "Deleting user (foo)"
-#    users.delete('foo', repos)
-#    print "Deleted user (foo)"
-#    for r in repo.listbyuser('foo'):
-#        repo.deluser(r, 'foo')
-
+    print "Deleting user (foo)"
+    users.delete('foo')
+    for r in repos.listbyuser('foo'):
+        repos.deluser(r, 'foo')
+    print "Deleted user (foo)"
 
     print "Users:", ", ".join(users.list())
 
