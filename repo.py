@@ -172,9 +172,12 @@ class User:
     def list(self):
         return set([x[0] for x in self.htfile.list()])
 
-    def delete(self, username):
+    def delete(self, username, repo=None):
         self.htfile.delete(username)
         self.htfile.save()
+        if repo:
+            for r in repo.listbyuser(username):
+                repo.deluser(r, username)
 
     def notify_user(self, username, password, email):
         body = """
@@ -290,6 +293,24 @@ class Repository:
 
             config.write(hgrc)
 
+    def deluser(self, name, username):
+        path = self.available_repos[name]
+        with open(path + '/.hg/hgrc', 'wb') as hgrc:
+            config = ConfigParser.RawConfigParser()
+            config.read(path + '/.hg/hgrc')
+            if config.has_section('web'):
+                if config.has_option('web', 'allow_read'):
+                    val = config.get('web', 'allow_read')
+                    if val != '*':
+                        newval = set(val) - set([username])
+                        config.set('web', 'allow_read', ", ".join(newval))
+                if config.has_option('web', 'allow_push'):
+                    val = config.get('web', 'allow_push')
+                    if val != '*':
+                        newval = set(val) - set([username])
+                        config.set('web', 'allow_push', ", ".join(newval))
+                config.write(hgrc)
+
 def main():
     """Mercurial Repository Manager (v0.3)"""
 
@@ -331,7 +352,6 @@ def main():
     print "User foo added."
     print "Users:", ", ".join(users.list())
 
-
     for r in repos.list():
         rusers = repos.listusers(r, users.list())
         print "[%s]:" % r
@@ -353,7 +373,7 @@ def main():
     print ", ".join(repos.listbyuser('garkbit'))
 
     print "Deleting user (foo)"
-    users.delete('foo')
+    users.delete('foo', repo)
     print "Deleted user (foo)"
     print "Users:", ", ".join(users.list())
 
