@@ -301,13 +301,19 @@ class Repository:
                 val = config.get('web', 'allow_read')
                 if val != '*':
                     newval = set(val.split(',')) - set([username])
-                    config.set('web', 'allow_read', ", ".join(newval))
+                    if newval:
+                        config.set('web', 'allow_read', ", ".join(newval))
+                    else:
+                        config.remove_option('web', 'allow_read')
 
             if config.has_option('web', 'allow_push'):
                 val = config.get('web', 'allow_push')
                 if val != '*':
                     newval = set(val.split(',')) - set([username])
-                    config.set('web', 'allow_push', ", ".join(newval))
+                    if newval:
+                        config.set('web', 'allow_push', ", ".join(newval))
+                    else:
+                        config.remove_option('web', 'allow_push')
 
             with open(path + '/.hg/hgrc', 'wb') as hgrc:
                 config.write(hgrc)
