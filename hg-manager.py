@@ -356,10 +356,13 @@ def rm(args):
     if args.username in users.list():
         yes = set(['yes','y', ''])
         no = set(['no','n'])
-        sys.stdout.write("Are you sure you want to delete the user ")
-        sys.stdout.write(args.username)
-        sys.stdout.write(" (Y/N)? ")
-        choice = raw_input().lower()
+        if not args.force:
+            sys.stdout.write("Are you sure you want to delete the user ")
+            sys.stdout.write(args.username)
+            sys.stdout.write(" (Y/N)? ")
+            choice = raw_input().lower()
+        else:
+            choice = 'yes'
         if choice in yes:
             repos = Repository(args.config_file)
             users.delete(args.username)
@@ -449,6 +452,7 @@ def main():
     # Remove users
     rm_parser = cmdparser.add_parser('rm', help='remove an existing user')
     rm_parser.add_argument('username', action='store', help='user to remove')
+    rm_parser.add_argument('-f', '--force', action='store_true', help='force user removal')
     rm_parser.set_defaults(func=rm)
 
     # List repositories
