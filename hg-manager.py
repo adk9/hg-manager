@@ -219,8 +219,8 @@ class Repository:
                     self.default_root = c
                 dirs = os.listdir(c)
                 for d in dirs:
-                    path = os.path.abspath(c) + '/' + d
-                    if os.path.isdir(path) and os.path.isdir(path + '/.hg'):
+                    path = os.path.join(os.path.abspath(c), d)
+                    if os.path.isdir(path) and os.path.isdir(os.path.join(path, '.hg')):
                         self.available_repos[os.path.basename(d)] = path
 
         if config.has_section('paths'):
@@ -240,7 +240,7 @@ class Repository:
             path = self.default_root
             newname = name
 
-        repo = path + '/' + newname
+        repo = os.path.join(path, newname)
         if newname not in self.available_repos:
             hgui = ui.ui()
             os.makedirs(repo)
@@ -299,7 +299,7 @@ class Repository:
     def adduser(self, name, username, mode='rw'):
         path = self.available_repos[name]
         config = ConfigParser.ConfigParser()
-        config.read(path + '/.hg/hgrc')
+        config.read(os.path.join(path, '.hg/hgrc'))
         if not config.has_section('web'):
             config.add_section('web')
 
@@ -316,13 +316,13 @@ class Repository:
             else:
                 config.set('web', 'allow_push', username)
 
-        with open(path + '/.hg/hgrc', 'wb') as hgrc:
+        with open(os.path.join(path, '.hg/hgrc'), 'wb') as hgrc:
             config.write(hgrc)
 
     def deluser(self, name, username):
         path = self.available_repos[name]
         config = ConfigParser.ConfigParser()
-        config.read(path + '/.hg/hgrc')
+        config.read(os.path.join(path, '.hg/hgrc'))
         if config.has_section('web'):
             if config.has_option('web', 'allow_read'):
                 val = config.get('web', 'allow_read')
@@ -342,7 +342,7 @@ class Repository:
                     else:
                         config.remove_option('web', 'allow_push')
 
-            with open(path + '/.hg/hgrc', 'wb') as hgrc:
+            with open(os.path.join(path, '.hg/hgrc'), 'wb') as hgrc:
                 config.write(hgrc)
 
 
