@@ -379,13 +379,13 @@ def main():
 
     # List users
     ls_parser = cmdparser.add_parser('ls', help='list users')
-    ls_parser.add_argument('username', action='store', help='List user details',
+    ls_parser.add_argument('username', action='store', help='list user details',
                            nargs='?')
     ls_parser.set_defaults(func=ls)
 
     # Add users
-    add_parser = cmdparser.add_parser('add', help='add a user')
-    add_parser.add_argument('username', action='store', help='New user to add')
+    add_parser = cmdparser.add_parser('add', help='add a new user')
+    add_parser.add_argument('username', action='store', help='new user to add')
     add_parser.add_argument('-r', '--realm', dest='realm',
                             default='mercurial repository',
                             help='realm to add the user to')
@@ -396,15 +396,20 @@ def main():
     add_parser.set_defaults(func=add)
 
     # Remove users
-    rm_parser = cmdparser.add_parser('rm', help='remove a user')
-    rm_parser.add_argument('username', action='store', help='User to remove')
+    rm_parser = cmdparser.add_parser('rm', help='remove an existing user')
+    rm_parser.add_argument('username', action='store', help='user to remove')
     rm_parser.set_defaults(func=rm)
 
     # List repositories
     lsr_parser = cmdparser.add_parser('lsr', help='list repositories')
-    lsr_parser.add_argument('reponame', action='store', help='List repositories',
+    lsr_parser.add_argument('reponame', action='store', help='list repositories',
                             nargs='?')
     lsr_parser.set_defaults(func=lsr)
+
+    # Add user(s) to a repository
+    adduser_parser = cmdparser.add_parser('adduser', help='add an existing user to a repository')
+    adduser_parser.add_argument('username', action='store', help='username')
+    adduser_parser.set_defaults(func=adduser)
 
     args = parser.parse_args()
 
