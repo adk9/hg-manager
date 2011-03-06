@@ -218,7 +218,9 @@ class Repository:
             for _, c in collections:
                 dirs = os.listdir(c)
                 for d in dirs:
-                    self.add(os.path.basename(d), os.path.abspath(c) + '/' + d)
+                    path = os.path.abspath(c) + '/' + d
+                    if os.path.isdir(path) and os.path.isdir(path + '/.hg'):
+                        self.add(os.path.basename(d), path)
 
     def add(self, name, path):
         self.available_repos[name] = path
@@ -237,7 +239,7 @@ class Repository:
 
         return myrepos
 
-    def listusers(self, name, users):
+    def listusers(self, name, users=[]):
         u = {}
         path = self.available_repos[name]
         config = ConfigParser.ConfigParser()
@@ -289,7 +291,6 @@ class Repository:
 
         with open(path + '/.hg/hgrc', 'wb') as hgrc:
             config.write(hgrc)
-        print "User %s added to repository %s with mode=%s." % (username, name, mode)
 
     def deluser(self, name, username):
         path = self.available_repos[name]
@@ -310,7 +311,6 @@ class Repository:
 
             with open(path + '/.hg/hgrc', 'wb') as hgrc:
                 config.write(hgrc)
-        print "User %s deleted from repository %s." % (username, name)
 
 
 def ls(args):
@@ -363,6 +363,51 @@ def rm(args):
     else:
         print "Invalid user %s." % args.username
 
+def adduser(args):
+    if args.mode:
+        if args.mode != "ro" and args.mode != "rw":
+            print "Invalid mode", args.mode
+            return
+    else:
+        args.mode = 'rw'
+
+    users = User(args.users_file)
+    repos = Repository(args.config_file)
+    if args.username not in users.list():
+        print "User %s does not exist." % args.username
+    else:
+        for repo in args.repos:
+            if repo not in repos.list():
+                print "Repository %s does not exist." % repo
+                return
+            else:
+                users = repos.listusers(repo)
+                if args.username in users[args.mode]:
+                    print "User %s is already a member of repository %s (mode=%s)" % (args.username, repo, args.mode)
+                    next
+                else:
+                    repos.adduser(repo, args.username, args.mode)
+                    print "User %s added to repository %s (mode=%s)." % (args.username, repo, args.mode)
+
+def deluser(args):
+    users = User(args.users_file)
+    repos = Repository(args.config_file)
+    if args.username not in users.list():
+        print "User %s does not exist." % args.username
+    else:
+        for repo in args.repos:
+            if repo not in repos.list():
+                print "Repository %s does not exist." % repo
+                return
+            else:
+                u = repos.listusers(repo, users.list())
+                if args.username not in u['ro'] and args.username not in u['rw']:
+                    print "User %s is not a member of repository %s" % (args.username, repo)
+                    next
+                else:
+                    repos.deluser(repo, args.username)
+                    print "User %s deleted from repository %s." % (args.username, repo)
+
 def main():
     """Mercurial Repository Manager (v0.3)"""
 
@@ -409,7 +454,17 @@ def main():
     # Add user(s) to a repository
     adduser_parser = cmdparser.add_parser('adduser', help='add an existing user to a repository')
     adduser_parser.add_argument('username', action='store', help='username')
+    adduser_parser.add_argument('-m', '--mode', dest='mode', help='mode: (ro=read-only, rw=read-write)')
+    adduser_parser.add_argument('repos', action='store', help='repositories to add the user to',
+                                nargs='+')
     adduser_parser.set_defaults(func=adduser)
+
+    # Delete user(s) from a repository
+    deluser_parser = cmdparser.add_parser('deluser', help='delete an existing user from a repository')
+    deluser_parser.add_argument('username', action='store', help='username')
+    deluser_parser.add_argument('repos', action='store', help='repositories to delete the user from',
+                                nargs='+')
+    deluser_parser.set_defaults(func=deluser)
 
     args = parser.parse_args()
 
