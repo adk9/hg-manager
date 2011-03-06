@@ -16,6 +16,7 @@ import ConfigParser
 import random
 import string
 import smtplib
+import shutil
 from argparse import ArgumentParser
 from email.mime.text import MIMEText
 from mercurial import ui, hg, commands
@@ -206,22 +207,51 @@ class Repository:
     """ A class for managing the repositories """
     def __init__(self, filename):
         self.available_repos = {}
+        self.default_root = None
         config = ConfigParser.ConfigParser()
         config.read(filename)
-
-        if config.has_section('paths'):
-            paths = config.items('paths')
-            for n, p in paths:
-                self.available_repos[n] = os.path.abspath(p)
 
         if config.has_section('collections'):
             collections = config.items('collections')
             for _, c in collections:
+                # Make the first collection you find, a default collection.
+                if not self.default_root:
+                    self.default_root = c
                 dirs = os.listdir(c)
                 for d in dirs:
                     path = os.path.abspath(c) + '/' + d
                     if os.path.isdir(path) and os.path.isdir(path + '/.hg'):
                         self.available_repos[os.path.basename(d)] = path
+
+        if config.has_section('paths'):
+            paths = config.items('paths')
+            for n, p in paths:
+                if not self.default_root:
+                    self.default_root = os.path.dirname(p)
+                self.available_repos[n] = os.path.abspath(p)
+
+
+    def create(self, name):
+        # Check if it's an absolute path
+        if os.path.exists(os.path.dirname(name)):
+            path = os.path.dirname(name)
+            newname = os.path.basename(name)
+        else:
+            path = self.default_root
+            newname = name
+
+        repo = path + '/' + newname
+        if newname not in self.available_repos:
+            hgui = ui.ui()
+            os.makedirs(repo)
+            commands.init(hgui, repo)
+            self.available_repos[newname] = repo
+
+    def delete(self, name):
+        if name in self.available_repos:
+            path = self.available_repos[name]
+            shutil.rmtree(path, ignore_errors=True)
+            del self.available_repos[name]
 
     def list(self):
         return self.available_repos.keys()
@@ -317,17 +347,17 @@ class Repository:
 
 
 def ls(args):
-    if args.username:
+    users = User(args.users_file)
+    if args.username and args.username in users.list():
         repos = Repository(args.config_file)
         print "User [%s]:" % args.username
         print " ", "\n  ".join(repos.listbyuser(args.username))
     else:
-        users = User(args.users_file)
         print "\n".join(users.list())
 
 def lsr(args):
     repos = Repository(args.config_file)
-    if args.reponame:
+    if args.reponame and args.reponame in repos.list():
         users = User(args.users_file)
         print "Repository [%s]:" % args.reponame
         rusers = repos.listusers(args.reponame, users.list())
@@ -367,7 +397,7 @@ def rm(args):
                 repos.deluser(r, args.username)
             print "User %s deleted." % args.username
     else:
-        print "Invalid user %s." % args.username
+        print "User %s does not exist." % args.username
 
 def adduser(args):
     if args.mode:
@@ -414,8 +444,46 @@ def deluser(args):
                     repos.deluser(repo, args.username)
                     print "User %s deleted from repository %s." % (args.username, repo)
 
+def create(args):
+    users = User(args.users_file)
+    repos = Repository(args.config_file)
+    for repo in args.reponame:
+        if repo in repos.list():
+            print "Repository %s already exists." % repo
+            next
+        else:
+            repos.create(repo)
+            print "Repository %s created." % repo
+            if args.users:
+                for u in args.users:
+                    if u in users.list():
+                        repos.adduser(repo, u)
+                        print "User %s added to repository %s." % (u, repo)
+                    else:
+                        print "User %s does not exist." % u
+
+def delete(args):
+    repos = Repository(args.config_file)
+    for repo in args.reponame:
+        if repo in repos.list():
+            yes = set(['yes','y', ''])
+            no = set(['no','n'])
+            if not args.force:
+                sys.stdout.write("Are you sure you want to delete the repository ")
+                sys.stdout.write(repo)
+                sys.stdout.write(" (Y/N)? ")
+                choice = raw_input().lower()
+            else:
+                choice = 'yes'
+
+            if choice in yes:
+                repos.delete(repo)
+                print "Repository %s deleted." % repo
+        else:
+            print "Repository %s does not exist." % repo
+
 def main():
-    """Mercurial Repository Manager (v0.3)"""
+    """Mercurial Repository Manager (v0.4)"""
 
     parser = ArgumentParser(description = main.__doc__)
     parser.add_argument('-v', '--version', action='version', version=hg_version)
@@ -473,6 +541,19 @@ def main():
                                 nargs='+')
     deluser_parser.set_defaults(func=deluser)
 
+    # Create a repository
+    create_parser = cmdparser.add_parser('create', help='create a new repository')
+    create_parser.add_argument('reponame', action='store', help='new repository to create', nargs='+')
+    create_parser.add_argument('-u', '--users', action='store', help='users to add to the repository',
+                               nargs='*')
+    create_parser.set_defaults(func=create)
+
+    # Delete a repository
+    delete_parser = cmdparser.add_parser('delete', help='delete an existing repository')
+    delete_parser.add_argument('reponame', action='store', help='repository to delete', nargs='+')
+    delete_parser.add_argument('-f', '--force', action='store_true', help='force repository removal')
+    delete_parser.set_defaults(func=delete)
+
     args = parser.parse_args()
 
     def syntax_error(msg):
@@ -486,8 +567,6 @@ def main():
     print "Users file:", args.users_file
 
     args.func(args)
-
-    # repos.adduser('hg-manager', 'foo')
 
 if __name__ == '__main__':
     main()
