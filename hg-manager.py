@@ -340,10 +340,10 @@ def add(args):
     users = User(args.users_file)
     if args.username in users.list():
         print "User %s already exists." % args.username
+    else:
         users.add(args.username, password=args.password, realm=args.realm,
                   email=args.email)
-    else:
-        print "User %s added." % args,username
+        print "User %s added." % args.username
 
 def rm(args):
     users = User(args.users_file)
