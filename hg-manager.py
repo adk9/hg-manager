@@ -18,6 +18,7 @@ import string
 import smtplib
 from argparse import ArgumentParser
 from email.mime.text import MIMEText
+from mercurial import ui, hg, commands
 
 # We need a crypt module, but Windows doesn't have one by default.  Try to find
 # one, and tell the user if we can't.
@@ -211,7 +212,7 @@ class Repository:
         if config.has_section('paths'):
             paths = config.items('paths')
             for n, p in paths:
-                self.add(n, os.path.abspath(p))
+                self.available_repos[n] = os.path.abspath(p)
 
         if config.has_section('collections'):
             collections = config.items('collections')
@@ -220,10 +221,7 @@ class Repository:
                 for d in dirs:
                     path = os.path.abspath(c) + '/' + d
                     if os.path.isdir(path) and os.path.isdir(path + '/.hg'):
-                        self.add(os.path.basename(d), path)
-
-    def add(self, name, path):
-        self.available_repos[name] = path
+                        self.available_repos[os.path.basename(d)] = path
 
     def list(self):
         return self.available_repos.keys()
@@ -236,7 +234,6 @@ class Repository:
             for v in urs.values():
                 if username in v:
                     myrepos.add(r)
-
         return myrepos
 
     def listusers(self, name, users=[]):
